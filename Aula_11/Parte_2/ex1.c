@@ -16,6 +16,7 @@ void putc(char byte){
     U2TXREG = byte;
 }
 
+// ex1
 void putstrInt(char *s){
     while(txbuf.nchar > 0); // Wait while the buffer is not empty
     // Copy all characters of the string "s" to the buffer
@@ -69,7 +70,8 @@ int main(void) {
     U2STAbits.URXISEL = 0; // Interrupt is set when any character is received
     // Enable interrupts
     EnableInterrupts();
-    
+
+    // ex3
     while(1){
         {
             putstrInt("Test string which can be as long as you like, up to a maximum of 100 characters\n");
@@ -78,6 +80,7 @@ int main(void) {
     return 0;
 }
 
+// ex2
 void _int_(32) isr_uart2(void)
 {
     if (IFS1bits.U2TXIF == 1)
