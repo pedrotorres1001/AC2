@@ -14,17 +14,15 @@ unsigned char toBcd(unsigned char value) {
     return ((value / 10) << 4) + (value % 10);
 }
 
-
 void init() {
-    TRISBbits.TRISB4 = 1; // RBx digital output disconnected
-    AD1PCFGbits.PCFG4 = 0; // RBx configured as analog input
+    TRISBbits.TRISB4 = 1; // RB4 digital output disconnected
+    AD1PCFGbits.PCFG4 = 0; // RB4 configured as analog input
     AD1CON1bits.SSRC = 7; // Conversion trigger selection bits: in this
     // mode an internal counter ends sampling and
     // starts conversion
     AD1CON1bits.CLRASAM = 1; // Stop conversions when the 1st A/D converter
     // interrupt is generated. At the same time,
     // hardware clears the ASAM bit
-    AD1CON3bits.SAMC = 16; // Sample time is 16 TAD (TAD = 100 ns)
     AD1CON2bits.SMPI = 3; // Interrupt is generated after N samples
     // (replace N by the desired number of
     // consecutive samples)
@@ -34,13 +32,24 @@ void init() {
     // This must the last command of the A/D
     // configuration sequence
 
+    // Timer 2
+    T2CONbits.TCKPS = 2;            // 1:4
+    PR2 = 49999;                    // (20 MHz / 4[Prescaler 1:4] * 100[Hz]) - 1 = 49999
+    TMR2 = 0;
+    T2CONbits.ON = 1;
+
+    // T2 PRIO
+    IPC2bits.T2IP = 2;
+    IEC0bits.T2IE = 1;
+    IFS0bits.T2IF = 0;
+
     IPC6bits.AD1IP = 2; // configure priority of A/D interrupts
     IFS1bits.AD1IF = 0; // clear A/D interrupt flag
     IEC1bits.AD1IE = 1; // enable A/D interrupts
 
-    TRISE = TRISE | 0xFF00;
-    TRISB = TRISB | 0x80FF;
-    TRISD = TRISD | 0xFF9F;
+    TRISE = TRISE & 0xFF00;
+    TRISB = TRISB & 0x80FF;
+    TRISD = TRISD & 0xFF9F;
 }
 
 void send2displays(unsigned char value) {
@@ -69,7 +78,8 @@ int main(void){
     init();
     EnableInterrupts();
     while(1) {
-        send2displays(toBcd(voltage));
+        AD1CON1bits.ASAM = 1; // Start conversion   
+        delay(100); 
     }
     return 0;
 }
@@ -84,37 +94,44 @@ void _int_(27) isr_adc(void) {
     }
     int average = soma / 4;
 
-    voltage = (average * 8 + 511) / 1023;
+    voltage = (average * 16 + 511) / 1023;
 
-    if (average >= 1 && average <= 8) {
-        if (average == 1){
+    if ((voltage >= 1) & (voltage <= 8)) {
+        if (voltage == 1){
             LATE = (LATE & 0xFF00) | 0x0001;
         }
-        else if (average == 2){
+        else if (voltage == 2){
             LATE = (LATE & 0xFF00) | 0x0003;
         }
-        else if (average == 3) {
+        else if (voltage == 3) {
             LATE = (LATE & 0xFF00) | 0x0007;
         }
-        else if (average == 4) {
+        else if (voltage == 4) {
             LATE = (LATE & 0xFF00) | 0x000F;
         }
-        else if (average == 5) {
+        else if (voltage == 5) {
             LATE = (LATE & 0xFF00) | 0x001F;
         }
-        else if (average == 6) {
+        else if (voltage == 6) {
             LATE = (LATE & 0xFF00) | 0x003F;
         }
-        else if (average == 7) {
+        else if (voltage == 7) {
             LATE = (LATE & 0xFF00) | 0x007F;
         }
-        else if (average == 8) {
+        else {
             LATE = (LATE & 0xFF00) | 0x00FF;
         }
-        else {
-            LATE = LATE | 0x0000;
-        }
     }
+    else {
+        LATE = (LATE & 0xFF00) | 0x0000;
+    }   
     AD1CON1bits.ASAM = 1; // Start conversion
     IFS1bits.AD1IF = 0; // Reset AD1IF flag
 }
+
+void _int_(8) isr_T2(void)
+{
+    send2displays(toBcd(voltage));
+    IFS0bits.T2IF = 0;
+}
+
