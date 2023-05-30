@@ -26,15 +26,15 @@ int main()
     //counter
     int counter;
     counter = (PORTB & 0x000F);
-    send2Leds(counter);
 
     while (1)
     {
-        if(counter == 0b11111111){
+        if(LATE == 0b11111111){
+            send2Leds(counter);
             counter = (PORTB & 0x000F);
         }
-        counter = (counter << 1) +1; 
         send2Leds(counter);
+        counter = (counter << 1) + 1;
         delay(1000);
     }
     
